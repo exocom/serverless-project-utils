@@ -1,0 +1,26 @@
+{
+  "name": "@kalarrs/serverless-project-utils",
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=9.0"
+  },
+  "description": "Easily manage multiple serverless projects",
+  "author": "Kalarrs Topham",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exocom/serverless-project-utils"
+  },
+  "keywords": [
+    "serverless",
+    "serverless-plugin"
+  ],
+  "main": "src/index.js",
+  "scripts": {
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "serverless": "^1.24.0"
+  }
+}
