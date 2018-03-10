@@ -29,21 +29,29 @@ describe('index.js', () => {
             serverlessProjectUtils = new ServerlessProjectUtils(serverless, {
                 target: 'http://localhost:3000'
             });
-            serverlessProjectUtils.hooks['proxy:loadRoutes']();
-            server.close();
         });
     });
 
     afterEach((done) => {
-        if (serverlessProjectUtils && serverlessProjectUtils.server && serverlessProjectUtils.server.server) serverlessProjectUtils.server.server.close();
+        if (serverlessProjectUtils && serverlessProjectUtils.server && serverlessProjectUtils.server) serverlessProjectUtils.server.close();
         sandbox.restore();
         done();
     });
 
-    it('should start a reverse proxy server and accept various requests', () => {
-        console.log(serverlessProjectUtils.server.server);
-        assert.equal(true, true);
+    it('should store a route override for puppies', () => {
+        serverlessProjectUtils.hooks['proxy:loadRoutes']();
 
+        console.log(serverlessProjectUtils.routesByHttpMethod);
+        assert.equal(true, true);
+    });
+
+    it('should start a reverse proxy server and accept various requests', () => {
+        serverlessProjectUtils.hooks['proxy:loadRoutes']();
+        serverlessProjectUtils.hooks['proxy:startProxyServer']();
+
+
+        //console.log(serverlessProjectUtils.server);
+        assert.equal(true, true);
     });
 
 
