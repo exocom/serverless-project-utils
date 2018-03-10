@@ -38,21 +38,33 @@ describe('index.js', () => {
         done();
     });
 
-    it('should store a route override for puppies', () => {
-        serverlessProjectUtils.hooks['proxy:loadRoutes']();
+    it('should store a routes for puppies and kittens', async () => {
+        return serverlessProjectUtils.hooks['proxy:loadRoutes']().then(() => {
+            // console.log(serverlessProjectUtils.routesByHttpMethod);
 
-        console.log(serverlessProjectUtils.routesByHttpMethod);
-        assert.equal(true, true);
+            const get = serverlessProjectUtils.routesByHttpMethod.GET;
+
+            const getKitten = get[0];
+            assert.equal(getKitten.path, 'kittens/{kittenId}');
+            assert.equal(getKitten.port, 5000);
+            assert.equal(getKitten.debug, false);
+
+
+            const getPuppy = get[1];
+            assert.equal(getPuppy.path, 'puppies/{puppyId}');
+            assert.equal(getPuppy.port, 5001);
+            assert.equal(getPuppy.debug, true);
+        });
     });
 
-    it('should start a reverse proxy server and accept various requests', () => {
-        serverlessProjectUtils.hooks['proxy:loadRoutes']();
-        serverlessProjectUtils.hooks['proxy:startProxyServer']();
-
-
-        //console.log(serverlessProjectUtils.server);
-        assert.equal(true, true);
-    });
+    // it('should start a reverse proxy server and accept various requests', () => {
+    //     serverlessProjectUtils.hooks['proxy:loadRoutes']();
+    //     serverlessProjectUtils.hooks['proxy:startProxyServer']();
+    //
+    //
+    //     //console.log(serverlessProjectUtils.server);
+    //     assert.equal(true, true);
+    // });
 
 
     // describe('When requesting puppies, the request should go to localhost:5000

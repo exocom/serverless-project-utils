@@ -5,6 +5,7 @@ const vinylYamlData = require('vinyl-yaml-data');
 const streamToPromise = require('stream-to-promise');
 const pathToRegexp = require('path-to-regexp');
 const promisify = require('util').promisify;
+const through2 = require('through2');
 
 const isPortInUse = promisify(function (port, fn) {
     const net = require('net');
@@ -29,7 +30,7 @@ class ServerlessProjectUtils {
         this.options = Object.assign({}, options, {
             port: 5000,
             paths: {
-                serverless: ['*/serverless.yml', '*/src/serverless.yml']
+                serverless: ['**/serverless.yml', '**/src/serverless.yml']
             }
         });
 
@@ -69,31 +70,34 @@ class ServerlessProjectUtils {
     }
 
     loadRoutes() {
+        let _this = this;
         this.routesByHttpMethod = this.defaultPaths();
 
-        const stream = gulp.src(this.options.paths.serverless)
-            .pipe(vinylYamlData());
+        let stream = gulp.src(this.options.paths.serverless, {base: this.serverless.config.servicePath})
+            .pipe(vinylYamlData())
+            .pipe(through2.obj(function (obj, enc, cb) {
+                let key = Object.keys(obj)[0];
+                let data = obj[key].src ? obj[key].src.serverless : obj[key].serverless;
 
-        stream.on('data', function (obj) {
-            let key = Object.keys(obj)[0];
-            let data = obj[key].src ? obj[key].src.serverless : obj[key].serverless;
+                if (data && data.custom && data.custom.localDevPort) {
+                    Object.values(data.functions).forEach(f => {
+                        if (f.events) {
+                            f.events.forEach(e => {
+                                if (e.http && e.http.method && e.http.path) {
+                                    const method = e.http.method.toUpperCase();
+                                    const path = e.http.path;
+                                    const port = data.custom.localDevPort;
+                                    const debug = data.custom.debug;
+                                    _this.addPath(method, path, port, debug);
+                                }
+                            });
+                        }
+                    });
+                }
 
-            if (data && data.custom && data.custom.localDevPort) {
-                Object.values(data.functions).forEach(f => {
-                    if (f.events) {
-                        f.events.forEach(e => {
-                            if (e.http && e.http.method && e.http.path) {
-                                const method = e.http.method.toUpperCase();
-                                const path = e.http.path;
-                                const port = data.custom.localDevPort;
-                                const debug = data.custom.debug;
-                                this.addPath(method, path, port, debug);
-                            }
-                        });
-                    }
-                });
-            }
-        });
+                this.push(obj);
+                cb();
+            }));
 
         return streamToPromise(stream);
     }
