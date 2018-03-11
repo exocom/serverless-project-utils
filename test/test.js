@@ -175,6 +175,7 @@ describe('index.js', () => {
         });
     });
 
-    // TODO : Test to validate proxy error if server goes down.
-    // TODO : Test fo validate previx exists if serverless yaml contains local host or explict value.
+    // TODO : Test to validate proxy error if server goes down. Change current logic to send regardless of if it is online. IE remove portInUse for now.
+    // TODO : Test to validate prefix 'http' is auto created if serverless yaml contains local dev server
+    // TODO : Test for prefix to be set if the serverless yaml contains custom.localDevPathPrefix.
 });
