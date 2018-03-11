@@ -1,3 +1,5 @@
+'use strict';
+
 const http = require('http');
 const httpProxy = require('http-proxy');
 const gulp = require('gulp');
@@ -26,6 +28,13 @@ const isPortInUse = promisify(function (port, fn) {
 
 class ServerlessProjectUtils {
     constructor(serverless, options) {
+        this.loading = {
+            routes: false
+        };
+
+        this.loadRoutesPromise = null;
+
+
         this.serverless = serverless;
         this.options = Object.assign({}, options, {
             port: 5000,
@@ -70,9 +79,12 @@ class ServerlessProjectUtils {
     }
 
     loadRoutes() {
-        let _this = this;
+        if (this.loading.routes) return;
+
+        this.loading.routes = true;
         this.routesByHttpMethod = this.defaultPaths();
 
+        let _this = this;
         let stream = gulp.src(this.options.paths.serverless, {base: this.serverless.config.servicePath})
             .pipe(vinylYamlData())
             .pipe(through2.obj(function (obj, enc, cb) {
@@ -80,6 +92,9 @@ class ServerlessProjectUtils {
                 let data = obj[key].src ? obj[key].src.serverless : obj[key].serverless;
 
                 if (data && data.custom && data.custom.localDevPort) {
+                    // TODO : detect the local host plugin and store prefix as '/http'.
+                    // TODO : allow custom: localDevPathPrefix to set prefix.
+
                     Object.values(data.functions).forEach(f => {
                         if (f.events) {
                             f.events.forEach(e => {
@@ -99,32 +114,39 @@ class ServerlessProjectUtils {
                 cb();
             }));
 
-        return streamToPromise(stream);
+        this.loadRoutesPromise = streamToPromise(stream).then((data) => {
+            this.loading.routes = false;
+            return data;
+        });
     }
 
     startProxyServer() {
         this.proxy = httpProxy.createProxyServer({});
 
         this.proxy.on('error', (err, req, res) => {
-            res.writeHead(500, {
-                'Content-Type': 'text/plain'
-            });
-
-            res.end('Something went wrong. And we are reporting a custom error message.');
+            if (res) {
+                res.status(500);
+                res.end(JSON.stringify({message: 'Unable to proxy request', error: err}));
+            }
         });
 
         this.server = http.createServer(async (req, res) => {
+            if (this.loading.routes) await this.loadRoutesPromise;
+
             const routes = this.routesByHttpMethod[req.method] || [];
             const route = routes.find(r => {
                 const path = r.path.replace(/\{(.*?)\}/g, ':$1');
-                return pathToRegexp(path).test(req.url);
+                return pathToRegexp(path).test(req.url.replace(/^\//, ''));
             });
 
-            if (route) {
-                let readyForRequest = route.debug || (route.port ? await isPortInUse(route.port) : false);
+            /*
+            * NOTE: This plugin could use isPortInUse instead of route.debug.
+            * however to be explicit the `debug: true` must be present in the serverless yaml at this time
+             */
+            if (route && route.debug) {
+                let readyForRequest = route.port ? await isPortInUse(route.port) : false;
                 if (readyForRequest) {
-                    console.log(routes[key].target);
-                    this.proxy.web(req, res, {target: route.target});
+                    this.proxy.web(req, res, {target: `http://localhost:${route.port}`});
                     return;
                 }
             }

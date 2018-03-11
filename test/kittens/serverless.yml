@@ -36,4 +36,4 @@ functions:
           cors: true
 
 custom:
-  localDevPort: 5000
+  localDevPort: 6000

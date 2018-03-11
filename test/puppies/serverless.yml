@@ -36,5 +36,5 @@ functions:
           cors: true
 
 custom:
-  localDevPort: 5001
+  localDevPort: 6001
   debug: true

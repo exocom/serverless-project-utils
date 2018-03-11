@@ -3,6 +3,7 @@
 /* global describe it beforeEach afterEach */
 const chai = require('chai');
 //const chaiAsPromised = require('chai-as-promised');
+const fetch = require('node-fetch');
 const sinon = require('sinon');
 
 const http = require('http');
@@ -18,6 +19,57 @@ describe('index.js', () => {
     let sandbox;
     let serverless;
     let serverlessProjectUtils;
+    let servers = {
+        default: null,
+        puppies: null,
+        kittens: null
+    };
+
+    const ports = {
+        proxy: 5000,
+        default: 3000,
+        kittens: 6000,
+        puppies: 6001
+    };
+
+    const startDefaultServer = () => {
+        servers.default = http.createServer((req, res) => {
+            res.end(JSON.stringify({server: 'default'}));
+        });
+
+        console.log(`default listening on port ${ports.default}`);
+        servers.default.listen(ports.default);
+    };
+
+    const startKittensServer = () => {
+        servers.kittens = http.createServer((req, res) => {
+            res.end(JSON.stringify({server: 'kittens'}));
+        });
+
+        console.log(`kittens listening on port ${ports.kittens}`);
+        servers.kittens.listen(ports.kittens);
+    };
+
+    const startPuppiesServer = () => {
+        servers.puppies = http.createServer((req, res) => {
+            res.end(JSON.stringify({server: 'puppies'}));
+        });
+
+        console.log(`puppies listening on port ${ports.puppies}`);
+        servers.puppies.listen(ports.puppies);
+    };
+
+    const sendHttpGetRequest = (path) => {
+        return fetch(`http://localhost:${ports.proxy}/${path.replace(/^\//, '')}`)
+    };
+
+    before((done) => {
+        startDefaultServer();
+        startKittensServer();
+        startPuppiesServer();
+
+        done();
+    });
 
     beforeEach(() => {
         sandbox = sinon.sandbox.create();
@@ -27,7 +79,8 @@ describe('index.js', () => {
             serverless.config.servicePath = __dirname;
 
             serverlessProjectUtils = new ServerlessProjectUtils(serverless, {
-                target: 'http://localhost:3000'
+                target: `http://localhost:${ports.default}`,
+                port: ports.proxy
             });
         });
     });
@@ -38,45 +91,90 @@ describe('index.js', () => {
         done();
     });
 
-    it('should store a routes for puppies and kittens', async () => {
-        return serverlessProjectUtils.hooks['proxy:loadRoutes']().then(() => {
-            // console.log(serverlessProjectUtils.routesByHttpMethod);
+    after((done) => {
+        Object.keys(servers).forEach(k => servers[k] && servers[k].close());
+        done();
+    });
 
-            const get = serverlessProjectUtils.routesByHttpMethod.GET;
+    describe('when no routes are loaded', () => {
+        beforeEach(() => {
+            serverlessProjectUtils.hooks['proxy:startProxyServer']();
+        });
 
-            const getKitten = get[0];
-            assert.equal(getKitten.path, 'kittens/{kittenId}');
-            assert.equal(getKitten.port, 5000);
-            assert.equal(getKitten.debug, false);
-
-
-            const getPuppy = get[1];
-            assert.equal(getPuppy.path, 'puppies/{puppyId}');
-            assert.equal(getPuppy.port, 5001);
-            assert.equal(getPuppy.debug, true);
+        it('should proxy all requests to default', () => {
+            return Promise.all([
+                sendHttpGetRequest('/kittens/11').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.server, 'default');
+                    });
+                }),
+                sendHttpGetRequest('/puppies/22').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.server, 'default');
+                    });
+                }),
+                sendHttpGetRequest('/fake').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.server, 'default');
+                    });
+                })
+            ]);
         });
     });
 
-    // it('should start a reverse proxy server and accept various requests', () => {
-    //     serverlessProjectUtils.hooks['proxy:loadRoutes']();
-    //     serverlessProjectUtils.hooks['proxy:startProxyServer']();
-    //
-    //
-    //     //console.log(serverlessProjectUtils.server);
-    //     assert.equal(true, true);
-    // });
+    describe('routes are loaded', () => {
+        beforeEach(() => {
+            serverlessProjectUtils.hooks['proxy:loadRoutes']();
+            serverlessProjectUtils.hooks['proxy:startProxyServer']();
+        });
+
+        it('should store a routes for puppies and kittens', async () => {
+            return serverlessProjectUtils.loadRoutesPromise.then(() => {
+                // console.log(serverlessProjectUtils.routesByHttpMethod);
+
+                const get = serverlessProjectUtils.routesByHttpMethod.GET;
+
+                const getKitten = get[0];
+                assert.equal(getKitten.path, 'kittens/{kittenId}');
+                assert.equal(getKitten.port, ports.kittens);
+                assert.equal(getKitten.debug, false);
 
 
-    // describe('When requesting puppies, the request should go to localhost:5000
-    // describe('When requesting kittens the request should proxy to localhost:3000
+                const getPuppy = get[1];
+                assert.equal(getPuppy.path, 'puppies/{puppyId}');
+                assert.equal(getPuppy.port, ports.puppies);
+                assert.equal(getPuppy.debug, true);
+            });
+        });
 
-    /*
-    const server = http.createServer((req, res) => {
-        console.log("LOCAL SERVER", req.url, req.method);
-        res.end();
+        it('should proxy debug routes to matching localhost port and all others to default', () => {
+
+            return Promise.all([
+                sendHttpGetRequest('/kittens/11').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.server, 'default');
+                    });
+                }),
+                sendHttpGetRequest('/puppies/22').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.server, 'puppies');
+                    });
+                }),
+                sendHttpGetRequest('/fake').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.server, 'default');
+                    });
+                })
+            ]);
+        });
     });
-    server.listen(3000);
-    */
 
-
+    // TODO : Test to validate proxy error if server goes down.
+    // TODO : Test fo validate previx exists if serverless yaml contains local host or explict value.
 });
