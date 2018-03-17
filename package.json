@@ -17,10 +17,22 @@
   ],
   "main": "src/index.js",
   "scripts": {
+    "test": "nyc mocha --timeout 10000"
   },
   "dependencies": {
+    "gulp": "^3.9.1",
+    "http-proxy": "^1.16.2",
+    "path-to-regexp": "^2.1.0",
+    "stream-to-promise": "^2.2.0",
+    "through2": "^2.0.3",
+    "vinyl-yaml-data": "^2.0.1"
   },
   "devDependencies": {
-    "serverless": "^1.24.0"
+    "chai": "^4.1.2",
+    "mocha": "^5.0.4",
+    "node-fetch": "^2.1.1",
+    "nyc": "^11.4.1",
+    "serverless": "^1.26.0",
+    "sinon": "^4.4.2"
   }
 }
