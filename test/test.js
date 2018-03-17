@@ -138,7 +138,7 @@ describe('index.js', () => {
             done();
         });
 
-        it('should store the routes for puppies and kittens', async () => {
+        it('should store the routes for puppies and kittens', () => {
             return serverlessProjectUtils.loadRoutesPromise.then(() => {
                 // console.log(serverlessProjectUtils.routesByHttpMethod);
 
@@ -155,7 +155,7 @@ describe('index.js', () => {
                 assert.equal(getPuppy.port, ports.puppies);
                 assert.equal(getPuppy.debug, true);
             });
-        });
+        }).timeout(10 * 1000);
 
         it('should proxy debug routes to matching localhost port and all others to default', () => {
             return Promise.all([
@@ -226,7 +226,7 @@ describe('index.js', () => {
                 fs.writeFile(puppiesConfigPath, fileContents, () => done());
             });
 
-            it('should store the updated routes for puppies and kittens', async () => {
+            it('should store the updated routes for puppies and kittens', () => {
                 return serverlessProjectUtils.loadRoutesPromise.then(() => {
                     // console.log(serverlessProjectUtils.routesByHttpMethod);
 
@@ -260,4 +260,4 @@ describe('index.js', () => {
 
     // TODO : Test to validate prefix 'http' is auto created if serverless yaml contains local dev server
     // TODO : Test for prefix to be set if the serverless yaml contains custom.localDevPathPrefix.
-});
+}).timeout(10 * 1000);
