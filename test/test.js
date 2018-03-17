@@ -1,11 +1,12 @@
 'use strict';
 
 /* global describe it beforeEach afterEach */
+const fs = require('fs');
+const path = require('path');
 const chai = require('chai');
 //const chaiAsPromised = require('chai-as-promised');
 const fetch = require('node-fetch');
 const sinon = require('sinon');
-
 const http = require('http');
 const Serverless = require('serverless');
 const ServerlessProjectUtils = require('../src');
@@ -86,7 +87,11 @@ describe('index.js', () => {
     });
 
     afterEach((done) => {
-        if (serverlessProjectUtils && serverlessProjectUtils.server && serverlessProjectUtils.server) serverlessProjectUtils.server.close();
+        if (serverlessProjectUtils) {
+            if (serverlessProjectUtils.server && serverlessProjectUtils.server.close) serverlessProjectUtils.server.close();
+            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.close) serverlessProjectUtils.watcher.close();
+            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.end) serverlessProjectUtils.watcher.end();
+        }
         sandbox.restore();
         done();
     });
@@ -97,8 +102,9 @@ describe('index.js', () => {
     });
 
     describe('when no routes are loaded', () => {
-        beforeEach(() => {
+        beforeEach((done) => {
             serverlessProjectUtils.hooks['proxy:startProxyServer']();
+            done();
         });
 
         it('should proxy all requests to default', () => {
@@ -126,9 +132,10 @@ describe('index.js', () => {
     });
 
     describe('when routes are loaded', () => {
-        beforeEach(() => {
+        beforeEach((done) => {
             serverlessProjectUtils.hooks['proxy:loadRoutes']();
             serverlessProjectUtils.hooks['proxy:startProxyServer']();
+            done();
         });
 
         it('should store a routes for puppies and kittens', async () => {
@@ -173,24 +180,81 @@ describe('index.js', () => {
             ]);
         });
 
-        it('should proxy debug routes always, even if the server is not running', () => {
-            servers.puppies.close();
+        describe('a proxy server stops listening', () => {
+            before((done) => {
+                servers.puppies.close();
+                done();
+            });
 
-            return Promise.all([
-                sendHttpGetRequest('/puppies/22').then(result => {
-                    assert.equal(result.status, 504);
-                    return result.json().then(body => {
-                        assert.deepEqual(body.error, {
-                            address: "127.0.0.1",
-                            code: "ECONNREFUSED",
-                            errno: "ECONNREFUSED",
-                            port: 6001,
-                            syscall: "connect"
+            it('should return a proxy error', () => {
+                return Promise.all([
+                    sendHttpGetRequest('/puppies/22').then(result => {
+                        assert.equal(result.status, 504);
+                        return result.json().then(body => {
+                            assert.deepEqual(body.error, {
+                                address: "127.0.0.1",
+                                code: "ECONNREFUSED",
+                                errno: "ECONNREFUSED",
+                                port: 6001,
+                                syscall: "connect"
+                            });
+                            assert.equal(body.message, 'Unable to proxy request');
                         });
-                        assert.equal(body.message, 'Unable to proxy request');
-                    });
-                })
-            ]);
+                    })
+                ]);
+            });
+        });
+    });
+
+    describe('when routes are loaded and watch is running', () => {
+        beforeEach(function (done) {
+            this.timeout(10000);
+            serverlessProjectUtils.hooks['proxy:loadRoutes']();
+            serverlessProjectUtils.hooks['proxy:startProxyServer']();
+            serverlessProjectUtils.hooks['proxy:watch']();
+            done();
+        });
+
+        describe('debug value in a serverless config file is changed', () => {
+            const puppiesConfigPath = path.join(__dirname, './puppies/serverless.yml');
+            const fileContents = fs.readFileSync(puppiesConfigPath).toString();
+            before((done) => {
+                fs.writeFile(puppiesConfigPath, fileContents.replace(/debug: true/gi, ''), () => done());
+            });
+
+            after((done) => {
+                fs.writeFile(puppiesConfigPath, fileContents, () => done());
+            });
+
+            it('should store a routes for puppies and kittens', async () => {
+                return serverlessProjectUtils.loadRoutesPromise.then(() => {
+                    // console.log(serverlessProjectUtils.routesByHttpMethod);
+
+                    const get = serverlessProjectUtils.routesByHttpMethod.GET;
+
+                    const getKitten = get[0];
+                    assert.equal(getKitten.path, 'kittens/{kittenId}');
+                    assert.equal(getKitten.port, ports.kittens);
+                    assert.equal(getKitten.debug, false);
+
+
+                    const getPuppy = get[1];
+                    assert.equal(getPuppy.path, 'puppies/{puppyId}');
+                    assert.equal(getPuppy.port, ports.puppies);
+                    assert.equal(getPuppy.debug, false);
+                });
+            });
+
+            it('should proxy puppies to default', () => {
+                return Promise.all([
+                    sendHttpGetRequest('/puppies/22').then(result => {
+                        assert.equal(result.status, 200);
+                        return result.json().then(body => {
+                            assert.equal(body.server, 'default');
+                        });
+                    })
+                ]);
+            });
         });
     });
 

@@ -137,7 +137,7 @@ class ServerlessProjectUtils {
     }
 
     watch() {
-        // TODO : Add gulp watch on files. On change call loadRoutes.
+        this.watcher = gulp.watch(this.options.paths.serverless, {base: this.serverless.config.servicePath}, () => this.loadRoutes());
     }
 }
 
