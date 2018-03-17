@@ -155,7 +155,7 @@ describe('index.js', () => {
                 assert.equal(getPuppy.port, ports.puppies);
                 assert.equal(getPuppy.debug, true);
             });
-        }).timeout(10 * 1000);
+        });
 
         it('should proxy debug routes to matching localhost port and all others to default', () => {
             return Promise.all([
@@ -207,8 +207,7 @@ describe('index.js', () => {
     });
 
     describe('when routes are loaded and watch is running', () => {
-        beforeEach(function (done) {
-            this.timeout(10000);
+        beforeEach((done) => {
             serverlessProjectUtils.hooks['proxy:loadRoutes']();
             serverlessProjectUtils.hooks['proxy:startProxyServer']();
             serverlessProjectUtils.hooks['proxy:watch']();
@@ -260,4 +259,4 @@ describe('index.js', () => {
 
     // TODO : Test to validate prefix 'http' is auto created if serverless yaml contains local dev server
     // TODO : Test for prefix to be set if the serverless yaml contains custom.localDevPathPrefix.
-}).timeout(10 * 1000);
+});
