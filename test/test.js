@@ -125,7 +125,7 @@ describe('index.js', () => {
         });
     });
 
-    describe('routes are loaded', () => {
+    describe('when routes are loaded', () => {
         beforeEach(() => {
             serverlessProjectUtils.hooks['proxy:loadRoutes']();
             serverlessProjectUtils.hooks['proxy:startProxyServer']();
@@ -151,7 +151,6 @@ describe('index.js', () => {
         });
 
         it('should proxy debug routes to matching localhost port and all others to default', () => {
-
             return Promise.all([
                 sendHttpGetRequest('/kittens/11').then(result => {
                     assert.equal(result.status, 200);
@@ -173,9 +172,28 @@ describe('index.js', () => {
                 })
             ]);
         });
+
+        it('should proxy debug routes always, even if the server is not running', () => {
+            servers.puppies.close();
+
+            return Promise.all([
+                sendHttpGetRequest('/puppies/22').then(result => {
+                    assert.equal(result.status, 504);
+                    return result.json().then(body => {
+                        assert.deepEqual(body.error, {
+                            address: "127.0.0.1",
+                            code: "ECONNREFUSED",
+                            errno: "ECONNREFUSED",
+                            port: 6001,
+                            syscall: "connect"
+                        });
+                        assert.equal(body.message, 'Unable to proxy request');
+                    });
+                })
+            ]);
+        });
     });
 
-    // TODO : Test to validate proxy error if server goes down. Change current logic to send regardless of if it is online. IE remove portInUse for now.
     // TODO : Test to validate prefix 'http' is auto created if serverless yaml contains local dev server
     // TODO : Test for prefix to be set if the serverless yaml contains custom.localDevPathPrefix.
 });

@@ -6,24 +6,7 @@ const gulp = require('gulp');
 const vinylYamlData = require('vinyl-yaml-data');
 const streamToPromise = require('stream-to-promise');
 const pathToRegexp = require('path-to-regexp');
-const promisify = require('util').promisify;
 const through2 = require('through2');
-
-const isPortInUse = promisify(function (port, fn) {
-    const net = require('net');
-
-    const testServer = net.createServer()
-        .once('error', (err) => {
-            if (err.code !== 'EADDRINUSE') return fn(err);
-            fn(null, true)
-        })
-        .once('listening', function () {
-            testServer.once('close', () => {
-                fn(null, false)
-            }).close()
-        })
-        .listen(port)
-});
 
 
 class ServerlessProjectUtils {
@@ -37,6 +20,7 @@ class ServerlessProjectUtils {
 
         this.serverless = serverless;
         this.options = Object.assign({}, options, {
+            watch: true,
             port: 5000,
             paths: {
                 serverless: ['**/serverless.yml', '**/src/serverless.yml']
@@ -52,7 +36,8 @@ class ServerlessProjectUtils {
 
         this.hooks = {
             'proxy:loadRoutes': this.loadRoutes.bind(this),
-            'proxy:startProxyServer': this.startProxyServer.bind(this)
+            'proxy:startProxyServer': this.startProxyServer.bind(this),
+            'proxy:watch': this.watch.bind(this)
         };
 
         this.routesByHttpMethod = this.defaultPaths();
@@ -125,7 +110,7 @@ class ServerlessProjectUtils {
 
         this.proxy.on('error', (err, req, res) => {
             if (res) {
-                res.status(500);
+                res.writeHead(err.code === 'ECONNREFUSED' ? 504 : 500, {'Content-Type': 'application/json'});
                 res.end(JSON.stringify({message: 'Unable to proxy request', error: err}));
             }
         });
@@ -139,16 +124,9 @@ class ServerlessProjectUtils {
                 return pathToRegexp(path).test(req.url.replace(/^\//, ''));
             });
 
-            /*
-            * NOTE: This plugin could use isPortInUse instead of route.debug.
-            * however to be explicit the `debug: true` must be present in the serverless yaml at this time
-             */
             if (route && route.debug) {
-                let readyForRequest = route.port ? await isPortInUse(route.port) : false;
-                if (readyForRequest) {
-                    this.proxy.web(req, res, {target: `http://localhost:${route.port}`});
-                    return;
-                }
+                this.proxy.web(req, res, {target: `http://localhost:${route.port}`});
+                return;
             }
 
             this.proxy.web(req, res, {target: this.options.target});
@@ -156,6 +134,10 @@ class ServerlessProjectUtils {
 
         console.log(`listening on port ${this.options.port}`);
         this.server.listen(this.options.port);
+    }
+
+    watch() {
+        // TODO : Add gulp watch on files. On change call loadRoutes.
     }
 }
 
