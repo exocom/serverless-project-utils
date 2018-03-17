@@ -129,7 +129,11 @@ class ServerlessProjectUtils {
                 return;
             }
 
-            this.proxy.web(req, res, {target: this.options.target});
+            this.proxy.web(req, res, {
+                target: this.options.target,
+                secure: true,
+                changeOrigin: true
+            });
         });
 
         console.log(`listening on port ${this.options.port}`);
