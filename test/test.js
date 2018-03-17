@@ -138,7 +138,7 @@ describe('index.js', () => {
             done();
         });
 
-        it('should store a routes for puppies and kittens', async () => {
+        it('should store the routes for puppies and kittens', async () => {
             return serverlessProjectUtils.loadRoutesPromise.then(() => {
                 // console.log(serverlessProjectUtils.routesByHttpMethod);
 
@@ -215,7 +215,7 @@ describe('index.js', () => {
             done();
         });
 
-        describe('debug value in a serverless config file is changed', () => {
+        describe('when a debug value in a serverless config file is changed', () => {
             const puppiesConfigPath = path.join(__dirname, './puppies/serverless.yml');
             const fileContents = fs.readFileSync(puppiesConfigPath).toString();
             before((done) => {
@@ -226,7 +226,7 @@ describe('index.js', () => {
                 fs.writeFile(puppiesConfigPath, fileContents, () => done());
             });
 
-            it('should store a routes for puppies and kittens', async () => {
+            it('should store the updated routes for puppies and kittens', async () => {
                 return serverlessProjectUtils.loadRoutesPromise.then(() => {
                     // console.log(serverlessProjectUtils.routesByHttpMethod);
 
