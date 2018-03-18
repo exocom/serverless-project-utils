@@ -4,7 +4,6 @@
 const fs = require('fs');
 const path = require('path');
 const chai = require('chai');
-//const chaiAsPromised = require('chai-as-promised');
 const fetch = require('node-fetch');
 const sinon = require('sinon');
 const http = require('http');
@@ -29,22 +28,33 @@ describe('index.js', () => {
     const ports = {
         proxy: 5000,
         default: 3000,
+        bears: 5999,
         kittens: 6000,
-        puppies: 6001
+        puppies: 6001,
+        turtles: 6002
     };
 
     const startDefaultServer = () => {
         servers.default = http.createServer((req, res) => {
-            res.end(JSON.stringify({server: 'default'}));
+            res.end(JSON.stringify({server: 'default', url: req.url}));
         });
 
         console.log(`default listening on port ${ports.default}`);
         servers.default.listen(ports.default);
     };
 
+    const startBearsServer = () => {
+        servers.bears = http.createServer((req, res) => {
+            res.end(JSON.stringify({server: 'bears', url: req.url}));
+        });
+
+        console.log(`bears listening on port ${ports.bears}`);
+        servers.bears.listen(ports.bears);
+    };
+
     const startKittensServer = () => {
         servers.kittens = http.createServer((req, res) => {
-            res.end(JSON.stringify({server: 'kittens'}));
+            res.end(JSON.stringify({server: 'kittens', url: req.url}));
         });
 
         console.log(`kittens listening on port ${ports.kittens}`);
@@ -53,11 +63,20 @@ describe('index.js', () => {
 
     const startPuppiesServer = () => {
         servers.puppies = http.createServer((req, res) => {
-            res.end(JSON.stringify({server: 'puppies'}));
+            res.end(JSON.stringify({server: 'puppies', url: req.url}));
         });
 
         console.log(`puppies listening on port ${ports.puppies}`);
         servers.puppies.listen(ports.puppies);
+    };
+
+    const startTurtlesServer = () => {
+        servers.turtles = http.createServer((req, res) => {
+            res.end(JSON.stringify({server: 'turtles', url: req.url}));
+        });
+
+        console.log(`turtles listening on port ${ports.turtles}`);
+        servers.turtles.listen(ports.turtles);
     };
 
     const sendHttpGetRequest = (path) => {
@@ -66,8 +85,10 @@ describe('index.js', () => {
 
     before((done) => {
         startDefaultServer();
+        startBearsServer();
         startKittensServer();
         startPuppiesServer();
+        startTurtlesServer();
 
         done();
     });
@@ -131,29 +152,42 @@ describe('index.js', () => {
         });
     });
 
-    describe('when routes are loaded', () => {
+    describe('when routes are loaded with watch set to false', () => {
         beforeEach((done) => {
-            serverlessProjectUtils.hooks['proxy:loadRoutes']();
-            serverlessProjectUtils.hooks['proxy:startProxyServer']();
+            serverlessProjectUtils.options.watch = false;
+            serverlessProjectUtils.hooks['proxy:start']();
             done();
         });
 
-        it('should store the routes for puppies and kittens', () => {
+        it('should store the routes for bears, puppies, kittens, and turtles', () => {
             return serverlessProjectUtils.loadRoutesPromise.then(() => {
-                // console.log(serverlessProjectUtils.routesByHttpMethod);
-
                 const get = serverlessProjectUtils.routesByHttpMethod.GET;
 
-                const getKitten = get[0];
+                const getBear = get[0];
+                assert.equal(getBear.pathPrefix, 'http/');
+                assert.equal(getBear.path, 'bears/{bearId}');
+                assert.equal(getBear.port, ports.bears);
+                assert.equal(getBear.debug, true);
+
+                const getKitten = get[1];
+                assert.equal(getKitten.pathPrefix, '');
                 assert.equal(getKitten.path, 'kittens/{kittenId}');
                 assert.equal(getKitten.port, ports.kittens);
                 assert.equal(getKitten.debug, false);
 
 
-                const getPuppy = get[1];
+                const getPuppy = get[2];
+                assert.equal(getPuppy.pathPrefix, '');
                 assert.equal(getPuppy.path, 'puppies/{puppyId}');
                 assert.equal(getPuppy.port, ports.puppies);
                 assert.equal(getPuppy.debug, true);
+
+
+                const getTurtle = get[3];
+                assert.equal(getTurtle.pathPrefix, 'local/api/');
+                assert.equal(getTurtle.path, 'turtles/{turtleId}');
+                assert.equal(getTurtle.port, ports.turtles);
+                assert.equal(getTurtle.debug, true);
             });
         });
 
@@ -177,6 +211,41 @@ describe('index.js', () => {
                         assert.equal(body.server, 'default');
                     });
                 })
+            ]);
+        });
+
+        it('should prefix local urls for bears and turtles', () => {
+            return Promise.all([
+                sendHttpGetRequest('/bears/00').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.url, '/http/bears/00');
+                    });
+                }),
+                sendHttpGetRequest('/kittens/11').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.url, '/kittens/11');
+                    });
+                }),
+                sendHttpGetRequest('/puppies/22').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.url, '/puppies/22');
+                    });
+                }),
+                sendHttpGetRequest('/turtles/33').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.url, '/local/api/turtles/33');
+                    });
+                }),
+                sendHttpGetRequest('/fake').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.url, '/fake');
+                    });
+                }),
             ]);
         });
 
@@ -208,9 +277,7 @@ describe('index.js', () => {
 
     describe('when routes are loaded and watch is running', () => {
         beforeEach((done) => {
-            serverlessProjectUtils.hooks['proxy:loadRoutes']();
-            serverlessProjectUtils.hooks['proxy:startProxyServer']();
-            serverlessProjectUtils.hooks['proxy:watch']();
+            serverlessProjectUtils.hooks['proxy:start']();
             done();
         });
 
@@ -227,17 +294,16 @@ describe('index.js', () => {
 
             it('should store the updated routes for puppies and kittens', () => {
                 return serverlessProjectUtils.loadRoutesPromise.then(() => {
-                    // console.log(serverlessProjectUtils.routesByHttpMethod);
 
                     const get = serverlessProjectUtils.routesByHttpMethod.GET;
 
-                    const getKitten = get[0];
+                    const getKitten = get[1];
                     assert.equal(getKitten.path, 'kittens/{kittenId}');
                     assert.equal(getKitten.port, ports.kittens);
                     assert.equal(getKitten.debug, false);
 
 
-                    const getPuppy = get[1];
+                    const getPuppy = get[2];
                     assert.equal(getPuppy.path, 'puppies/{puppyId}');
                     assert.equal(getPuppy.port, ports.puppies);
                     assert.equal(getPuppy.debug, false);
@@ -256,7 +322,4 @@ describe('index.js', () => {
             });
         });
     });
-
-    // TODO : Test to validate prefix 'http' is auto created if serverless yaml contains local dev server
-    // TODO : Test for prefix to be set if the serverless yaml contains custom.localDevPathPrefix.
 });

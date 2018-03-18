@@ -17,7 +17,6 @@ class ServerlessProjectUtils {
 
         this.loadRoutesPromise = null;
 
-
         this.serverless = serverless;
         this.options = Object.assign({}, options, {
             watch: true,
@@ -30,13 +29,14 @@ class ServerlessProjectUtils {
         this.commands = {
             proxy: {
                 usage: 'Checks to see if the AWS API gateway exists and if you have permission',
-                lifecycleEvents: ['loadRoutes', 'startProxyServer']
+                lifecycleEvents: ['start', 'startProxyServer']
             }
         };
 
         this.hooks = {
-            'proxy:loadRoutes': this.loadRoutes.bind(this),
+            'proxy:start': this.start.bind(this),
             'proxy:startProxyServer': this.startProxyServer.bind(this),
+            'proxy:loadRoutes': this.loadRoutes.bind(this),
             'proxy:watch': this.watch.bind(this)
         };
 
@@ -55,18 +55,27 @@ class ServerlessProjectUtils {
         };
     }
 
-    addPath(method, path, port, debug = false) {
+    addPath(method, pathPrefix, path, port, debug = false) {
         let routes = this.routesByHttpMethod[method];
         let route = routes.find(r => r.path === path);
         if (!route) {
-            routes.push({path, port, debug});
+            routes.push({pathPrefix, path, port, debug});
         }
+    }
+
+    start() {
+        if (this.options.watch) this.watch();
+
+        this.loadRoutes();
+        this.startProxyServer();
     }
 
     loadRoutes() {
         if (this.loading.routes) return;
 
         this.loading.routes = true;
+        this.serverless.cli.log('Loading Routes');
+
         this.routesByHttpMethod = this.defaultPaths();
 
         let _this = this;
@@ -77,8 +86,8 @@ class ServerlessProjectUtils {
                 let data = obj[key].src ? obj[key].src.serverless : obj[key].serverless;
 
                 if (data && data.custom && data.custom.localDevPort) {
-                    // TODO : detect the local host plugin and store prefix as '/http'.
-                    // TODO : allow custom: localDevPathPrefix to set prefix.
+                    const hasLocalDevServer = Array.isArray(data.plugins) && data.plugins.includes('@kalarrs/serverless-local-dev-server');
+                    const pathPrefix = data.custom.localDevPathPrefix ? data.custom.localDevPathPrefix.replace(/(^\/|\/$)/gi, '') + '/' : hasLocalDevServer ? 'http/' : '';
 
                     Object.values(data.functions).forEach(f => {
                         if (f.events) {
@@ -88,7 +97,7 @@ class ServerlessProjectUtils {
                                     const path = e.http.path;
                                     const port = data.custom.localDevPort;
                                     const debug = data.custom.debug;
-                                    _this.addPath(method, path, port, debug);
+                                    _this.addPath(method, pathPrefix, path, port, debug);
                                 }
                             });
                         }
@@ -101,6 +110,7 @@ class ServerlessProjectUtils {
 
         this.loadRoutesPromise = streamToPromise(stream).then((data) => {
             this.loading.routes = false;
+            this.serverless.cli.log('Completed Loading Routes');
             return data;
         });
     }
@@ -125,11 +135,16 @@ class ServerlessProjectUtils {
             });
 
             if (route && route.debug) {
+                req.url = route.pathPrefix + req.url;
                 this.proxy.web(req, res, {target: `http://localhost:${route.port}`});
                 return;
             }
 
-            this.proxy.web(req, res, {target: this.options.target});
+            this.proxy.web(req, res, {
+                target: this.options.target,
+                secure: true,
+                changeOrigin: true
+            });
         });
 
         console.log(`listening on port ${this.options.port}`);
