@@ -109,9 +109,12 @@ describe('index.js', () => {
 
     afterEach((done) => {
         if (serverlessProjectUtils) {
-            if (serverlessProjectUtils.server && serverlessProjectUtils.server.close) serverlessProjectUtils.server.close();
-            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.close) serverlessProjectUtils.watcher.close();
-            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.end) serverlessProjectUtils.watcher.end();
+            if (serverlessProjectUtils.server && serverlessProjectUtils.server.close) {
+                serverlessProjectUtils.server.close();
+            }
+            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.close) {
+                serverlessProjectUtils.watcher.close();
+            }
         }
         sandbox.restore();
         done();

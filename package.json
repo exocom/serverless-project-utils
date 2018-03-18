@@ -20,7 +20,7 @@
     "test": "nyc mocha --timeout 10000"
   },
   "dependencies": {
-    "gulp": "^3.9.1",
+    "gulp": "^4.0.0",
     "http-proxy": "^1.16.2",
     "path-to-regexp": "^2.1.0",
     "stream-to-promise": "^2.2.0",

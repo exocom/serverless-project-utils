@@ -22,7 +22,7 @@ class ServerlessProjectUtils {
             watch: true,
             port: 5000,
             paths: {
-                serverless: ['**/serverless.yml', '**/src/serverless.yml']
+                serverless: ['**/serverless.yml', '**/src/serverless.yml', '!node_modules/**', '!**/node_modules/**']
             }
         });
 
