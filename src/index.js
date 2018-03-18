@@ -116,6 +116,8 @@ class ServerlessProjectUtils {
     }
 
     startProxyServer() {
+        if (this.server && this.server.close) this.server.close();
+
         this.proxy = httpProxy.createProxyServer({});
 
         this.proxy.on('error', (err, req, res) => {

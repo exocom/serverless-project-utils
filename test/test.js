@@ -109,12 +109,8 @@ describe('index.js', () => {
 
     afterEach((done) => {
         if (serverlessProjectUtils) {
-            if (serverlessProjectUtils.server && serverlessProjectUtils.server.close) {
-                serverlessProjectUtils.server.close();
-            }
-            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.close) {
-                serverlessProjectUtils.watcher.close();
-            }
+            if (serverlessProjectUtils.server && serverlessProjectUtils.server.close) serverlessProjectUtils.server.close();
+            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.close)serverlessProjectUtils.watcher.close();
         }
         sandbox.restore();
         done();
@@ -123,6 +119,9 @@ describe('index.js', () => {
     after((done) => {
         Object.keys(servers).forEach(k => servers[k] && servers[k].close());
         done();
+        // NOTE: gulp watch not fully exiting on travis ci, or when ran with webstorm run.
+        // NOTE: does exit when ran directly via cli using `npm run test`
+        setTimeout(() => process.exit(0), 500);
     });
 
     describe('when no routes are loaded', () => {
