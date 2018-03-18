@@ -55,11 +55,11 @@ class ServerlessProjectUtils {
         };
     }
 
-    addPath(method, path, port, debug = false) {
+    addPath(method, pathPrefix, path, port, debug = false) {
         let routes = this.routesByHttpMethod[method];
         let route = routes.find(r => r.path === path);
         if (!route) {
-            routes.push({path, port, debug});
+            routes.push({pathPrefix, path, port, debug});
         }
     }
 
@@ -86,8 +86,8 @@ class ServerlessProjectUtils {
                 let data = obj[key].src ? obj[key].src.serverless : obj[key].serverless;
 
                 if (data && data.custom && data.custom.localDevPort) {
-                    // TODO : detect the local host plugin and store prefix as '/http'.
-                    // TODO : allow custom: localDevPathPrefix to set prefix.
+                    const hasLocalDevServer = Array.isArray(data.plugins) && data.plugins.includes('@kalarrs/serverless-local-dev-server');
+                    const pathPrefix = data.custom.localDevPathPrefix ? data.custom.localDevPathPrefix.replace(/(^\/|\/$)/gi, '') + '/' : hasLocalDevServer ? 'http/' : '';
 
                     Object.values(data.functions).forEach(f => {
                         if (f.events) {
@@ -97,7 +97,7 @@ class ServerlessProjectUtils {
                                     const path = e.http.path;
                                     const port = data.custom.localDevPort;
                                     const debug = data.custom.debug;
-                                    _this.addPath(method, path, port, debug);
+                                    _this.addPath(method, pathPrefix, path, port, debug);
                                 }
                             });
                         }
@@ -135,6 +135,7 @@ class ServerlessProjectUtils {
             });
 
             if (route && route.debug) {
+                req.url = route.pathPrefix + req.url;
                 this.proxy.web(req, res, {target: `http://localhost:${route.port}`});
                 return;
             }
