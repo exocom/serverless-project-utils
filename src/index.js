@@ -22,7 +22,7 @@ class ServerlessProjectUtils {
             watch: true,
             port: 5000,
             paths: {
-                serverless: ['**/serverless.yml', '**/src/serverless.yml']
+                serverless: ['**/serverless.yml', '**/src/serverless.yml', '!node_modules/**', '!**/node_modules/**']
             }
         });
 
@@ -116,6 +116,8 @@ class ServerlessProjectUtils {
     }
 
     startProxyServer() {
+        if (this.server && this.server.close) this.server.close();
+
         this.proxy = httpProxy.createProxyServer({});
 
         this.proxy.on('error', (err, req, res) => {
@@ -152,6 +154,8 @@ class ServerlessProjectUtils {
     }
 
     watch() {
+        if (this.watcher && this.watcher.close) this.watcher.close();
+
         this.watcher = gulp.watch(this.options.paths.serverless, {base: this.serverless.config.servicePath}, () => this.loadRoutes());
     }
 }
