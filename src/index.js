@@ -152,6 +152,8 @@ class ServerlessProjectUtils {
     }
 
     watch() {
+        if (this.watcher && this.watcher.close) this.watcher.close();
+
         this.watcher = gulp.watch(this.options.paths.serverless, {base: this.serverless.config.servicePath}, () => this.loadRoutes());
     }
 }
