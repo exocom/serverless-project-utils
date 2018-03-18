@@ -131,17 +131,15 @@ describe('index.js', () => {
         });
     });
 
-    describe('when routes are loaded', () => {
+    describe('when routes are loaded with out watcher', () => {
         beforeEach((done) => {
-            serverlessProjectUtils.hooks['proxy:loadRoutes']();
-            serverlessProjectUtils.hooks['proxy:startProxyServer']();
+            serverlessProjectUtils.options.watch = false;
+            serverlessProjectUtils.hooks['proxy:start']();
             done();
         });
 
         it('should store the routes for puppies and kittens', () => {
             return serverlessProjectUtils.loadRoutesPromise.then(() => {
-                // console.log(serverlessProjectUtils.routesByHttpMethod);
-
                 const get = serverlessProjectUtils.routesByHttpMethod.GET;
 
                 const getKitten = get[0];
@@ -208,9 +206,7 @@ describe('index.js', () => {
 
     describe('when routes are loaded and watch is running', () => {
         beforeEach((done) => {
-            serverlessProjectUtils.hooks['proxy:loadRoutes']();
-            serverlessProjectUtils.hooks['proxy:startProxyServer']();
-            serverlessProjectUtils.hooks['proxy:watch']();
+            serverlessProjectUtils.hooks['proxy:start']();
             done();
         });
 
@@ -257,6 +253,8 @@ describe('index.js', () => {
         });
     });
 
+    // TODO : console.log when load starts, console.log when load ends
+    // TODO : create a promise for the watch task and use it over the load. This will speed things up.
     // TODO : Test to validate prefix 'http' is auto created if serverless yaml contains local dev server
     // TODO : Test for prefix to be set if the serverless yaml contains custom.localDevPathPrefix.
 });

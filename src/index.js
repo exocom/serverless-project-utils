@@ -17,7 +17,6 @@ class ServerlessProjectUtils {
 
         this.loadRoutesPromise = null;
 
-
         this.serverless = serverless;
         this.options = Object.assign({}, options, {
             watch: true,
@@ -30,13 +29,14 @@ class ServerlessProjectUtils {
         this.commands = {
             proxy: {
                 usage: 'Checks to see if the AWS API gateway exists and if you have permission',
-                lifecycleEvents: ['loadRoutes', 'startProxyServer']
+                lifecycleEvents: ['start', 'startProxyServer']
             }
         };
 
         this.hooks = {
-            'proxy:loadRoutes': this.loadRoutes.bind(this),
+            'proxy:start': this.start.bind(this),
             'proxy:startProxyServer': this.startProxyServer.bind(this),
+            'proxy:loadRoutes': this.loadRoutes.bind(this),
             'proxy:watch': this.watch.bind(this)
         };
 
@@ -63,10 +63,19 @@ class ServerlessProjectUtils {
         }
     }
 
+    start() {
+        if (this.options.watch) this.watch();
+
+        this.loadRoutes();
+        this.startProxyServer();
+    }
+
     loadRoutes() {
         if (this.loading.routes) return;
 
         this.loading.routes = true;
+        this.serverless.cli.log('Loading Routes');
+
         this.routesByHttpMethod = this.defaultPaths();
 
         let _this = this;
@@ -101,6 +110,7 @@ class ServerlessProjectUtils {
 
         this.loadRoutesPromise = streamToPromise(stream).then((data) => {
             this.loading.routes = false;
+            this.serverless.cli.log('Completed Loading Routes');
             return data;
         });
     }
