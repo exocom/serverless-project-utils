@@ -28,13 +28,12 @@ class ServerlessProjectUtils {
 
         this.commands = {
             proxy: {
-                usage: 'Checks to see if the AWS API gateway exists and if you have permission',
-                lifecycleEvents: ['start', 'startProxyServer']
+                usage: 'Starts a proxy that will proxy requests to the cloud or locally.',
+                lifecycleEvents: ['watch', 'loadRoutes', 'startProxyServer']
             }
         };
 
         this.hooks = {
-            'proxy:start': this.start.bind(this),
             'proxy:startProxyServer': this.startProxyServer.bind(this),
             'proxy:loadRoutes': this.loadRoutes.bind(this),
             'proxy:watch': this.watch.bind(this)
@@ -61,13 +60,6 @@ class ServerlessProjectUtils {
         if (!route) {
             routes.push({pathPrefix, path, port, debug});
         }
-    }
-
-    start() {
-        if (this.options.watch) this.watch();
-
-        this.loadRoutes();
-        this.startProxyServer();
     }
 
     loadRoutes() {
@@ -142,8 +134,15 @@ class ServerlessProjectUtils {
                 return;
             }
 
+            const domainName = this.serverless.service
+                && this.serverless.service.custom
+                && this.serverless.service.custom.customDomain
+                && this.serverless.service.custom.customDomain.domainName;
+
+            const target = domainName ? `https://${domainName}` : this.options.target;
+
             this.proxy.web(req, res, {
-                target: this.options.target,
+                target,
                 secure: true,
                 changeOrigin: true
             });
@@ -154,6 +153,7 @@ class ServerlessProjectUtils {
     }
 
     watch() {
+        if (!this.options.watch) return;
         if (this.watcher && this.watcher.close) this.watcher.close();
 
         this.watcher = gulp.watch(this.options.paths.serverless, {base: this.serverless.config.servicePath}, () => this.loadRoutes());

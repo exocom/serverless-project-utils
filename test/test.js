@@ -7,27 +7,26 @@ const chai = require('chai');
 const fetch = require('node-fetch');
 const sinon = require('sinon');
 const http = require('http');
+const https = require('https');
 const Serverless = require('serverless');
 const ServerlessProjectUtils = require('../src');
 
 
-// chai.use(chaiAsPromised);
 const assert = chai.assert;
+const key = fs.readFileSync(path.join(__dirname, './server.key'));
+const cert = fs.readFileSync(path.join(__dirname, './server.crt'));
 
 describe('index.js', () => {
 
     let sandbox;
     let serverless;
     let serverlessProjectUtils;
-    let servers = {
-        default: null,
-        puppies: null,
-        kittens: null
-    };
+    const servers = {};
 
     const ports = {
         proxy: 5000,
         default: 3000,
+        custom: 3001,
         bears: 5999,
         kittens: 6000,
         puppies: 6001,
@@ -41,6 +40,15 @@ describe('index.js', () => {
 
         console.log(`default listening on port ${ports.default}`);
         servers.default.listen(ports.default);
+    };
+
+    const startCustomServer = () => {
+        servers.custom = https.createServer({key, cert}, (req, res) => {
+            res.end(JSON.stringify({server: 'custom', url: req.url}));
+        });
+
+        console.log(`custom listening on port ${ports.custom}`);
+        servers.custom.listen(ports.custom);
     };
 
     const startBearsServer = () => {
@@ -85,6 +93,7 @@ describe('index.js', () => {
 
     before((done) => {
         startDefaultServer();
+        startCustomServer();
         startBearsServer();
         startKittensServer();
         startPuppiesServer();
@@ -110,7 +119,7 @@ describe('index.js', () => {
     afterEach((done) => {
         if (serverlessProjectUtils) {
             if (serverlessProjectUtils.server && serverlessProjectUtils.server.close) serverlessProjectUtils.server.close();
-            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.close)serverlessProjectUtils.watcher.close();
+            if (serverlessProjectUtils.watcher && serverlessProjectUtils.watcher.close) serverlessProjectUtils.watcher.close();
         }
         sandbox.restore();
         done();
@@ -154,10 +163,48 @@ describe('index.js', () => {
         });
     });
 
+    describe('when severless config contains a custom domain name', () => {
+        beforeEach((done) => {
+            serverless.service.custom.customDomain = {domainName: `127.0.0.1:${ports.custom}`};
+            serverlessProjectUtils.commands.proxy.lifecycleEvents.forEach(e => {
+                serverlessProjectUtils.hooks[`proxy:${e}`]();
+            });
+            done();
+        });
+
+        it('should proxy debug routes to matching localhost port and all others to custom domain name with self signed cert', () => {
+            return Promise.all([
+                sendHttpGetRequest('/kittens/11').then(result => {
+                    assert.equal(result.status, 500);
+                    return result.json().then(body => {
+                        console.log(body);
+                        assert.equal(body.error.code, 'DEPTH_ZERO_SELF_SIGNED_CERT');
+                    });
+                }),
+                sendHttpGetRequest('/puppies/22').then(result => {
+                    assert.equal(result.status, 200);
+                    return result.json().then(body => {
+                        assert.equal(body.server, 'puppies');
+                    });
+                }),
+                sendHttpGetRequest('/fake').then(result => {
+                    assert.equal(result.status, 500);
+                    return result.json().then(body => {
+                        console.log(body);
+                        assert.equal(body.error.code, 'DEPTH_ZERO_SELF_SIGNED_CERT');
+                    });
+                })
+            ]);
+        });
+    });
+
+
     describe('when routes are loaded with watch set to false', () => {
         beforeEach((done) => {
             serverlessProjectUtils.options.watch = false;
-            serverlessProjectUtils.hooks['proxy:start']();
+            serverlessProjectUtils.commands.proxy.lifecycleEvents.forEach(e => {
+                serverlessProjectUtils.hooks[`proxy:${e}`]();
+            });
             done();
         });
 
@@ -279,7 +326,9 @@ describe('index.js', () => {
 
     describe('when routes are loaded and watch is running', () => {
         beforeEach((done) => {
-            serverlessProjectUtils.hooks['proxy:start']();
+            serverlessProjectUtils.commands.proxy.lifecycleEvents.forEach(e => {
+                serverlessProjectUtils.hooks[`proxy:${e}`]();
+            });
             done();
         });
 
