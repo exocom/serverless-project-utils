@@ -157,7 +157,9 @@ describe('index.js', () => {
     describe('when routes are loaded with watch set to false', () => {
         beforeEach((done) => {
             serverlessProjectUtils.options.watch = false;
-            serverlessProjectUtils.hooks['proxy:start']();
+            serverlessProjectUtils.commands.proxy.lifecycleEvents.forEach(e => {
+                serverlessProjectUtils.hooks[`proxy:${e}`]();
+            });
             done();
         });
 
@@ -279,7 +281,9 @@ describe('index.js', () => {
 
     describe('when routes are loaded and watch is running', () => {
         beforeEach((done) => {
-            serverlessProjectUtils.hooks['proxy:start']();
+            serverlessProjectUtils.commands.proxy.lifecycleEvents.forEach(e => {
+                serverlessProjectUtils.hooks[`proxy:${e}`]();
+            });
             done();
         });
 

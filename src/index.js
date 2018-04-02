@@ -29,7 +29,7 @@ class ServerlessProjectUtils {
         this.commands = {
             proxy: {
                 usage: 'Starts a proxy that will proxy requests to the cloud or locally.',
-                lifecycleEvents: ['watch', 'loadRouts', 'startProxyServer']
+                lifecycleEvents: ['watch', 'loadRoutes', 'startProxyServer']
             }
         };
 
@@ -134,8 +134,15 @@ class ServerlessProjectUtils {
                 return;
             }
 
+            const domainName = this.serverless.service
+                && this.serverless.service.custom
+                && this.serverless.service.custom.customDomain
+                && this.serverless.service.custom.customDomain.domainName;
+
+            const target = domainName ? `https://${domainName}` : this.options.target;
+
             this.proxy.web(req, res, {
-                target: this.options.target,
+                target,
                 secure: true,
                 changeOrigin: true
             });
