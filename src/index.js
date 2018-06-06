@@ -7,7 +7,7 @@ class ServerlessProjectUtils {
     constructor(serverless, options) {
         this.serverless = serverless;
         this.commands = {
-            'export-config': {
+            'export': {
                 usage: 'Exports the computed serverless config to .json files',
                 lifecycleEvents: ['environment']
             }
