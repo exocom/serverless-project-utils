@@ -33,13 +33,12 @@ describe('index.js', () => {
     });
 
     describe('when export command is ran', () => {
-        beforeEach((done) => {
+        beforeEach(() => {
             serverless.processedInput = {
                 commands: ['export'],
                 options: {stage: undefined, region: undefined}
             };
-            serverless.run();
-            done();
+            return serverless.run();
         });
 
         it('should create an environment.json', () => {
