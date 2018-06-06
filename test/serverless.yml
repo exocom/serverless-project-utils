@@ -1,9 +1,12 @@
 service:
-  name: puppies
+  name: panda
 
 provider:
   name: aws
   runtime: nodejs6.10
+  environment:
+    NODE_ENV: "dev"
+    SERVICE_NAME: ${self:service.name}
 
 functions:
   create:
@@ -11,30 +14,30 @@ functions:
     events:
       - http:
           method: post
-          path: "puppies"
+          path: "pandas"
           cors: true
   remove:
       handler: src/handler.remove
       events:
         - http:
             method: delete
-            path: "puppies/{puppyId}"
+            path: "pandas/{pandaId}"
             cors: true
   get:
     handler: src/handler.get
     events:
       - http:
           method: get
-          path: "puppies/{puppyId}"
+          path: "pandas/{pandaId}"
           cors: true
   update:
     handler: src/handler.update
     events:
       - http:
           method: put
-          path: "puppies/{puppyId}"
+          path: "panda/{pandaId}"
           cors: true
 
 custom:
-  localDevPort: 6001
+  localDevPort: 5999
   debug: true
