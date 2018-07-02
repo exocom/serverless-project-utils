@@ -41,12 +41,15 @@ describe('index.js', () => {
             return serverless.run();
         });
 
-        it('should create an environment.json', () => {
-            assert.isTrue(fs.existsSync(`${serverlessFolder}/environment.json`));
-            const env = require(`${serverlessFolder}/environment.json`);
+        it('should create a serverless.json', () => {
+            assert.isTrue(fs.existsSync(`${serverlessFolder}/serverless.json`));
+            const serverlessYaml = require(`${serverlessFolder}/serverless.json`);
 
-            assert.equal(env.NODE_ENV, 'dev');
-            assert.equal(env.SERVICE_NAME, 'panda');
+            assert.equal(serverlessYaml.serviceObject.name, 'panda');
+            assert.equal(serverlessYaml.provider.environment.NODE_ENV, 'dev');
+            assert.equal(serverlessYaml.provider.environment.SERVICE_NAME, 'panda');
+
+            assert.equal(serverlessYaml.functions.create.environment.NODE_ENV, 'test');
         });
     });
 });

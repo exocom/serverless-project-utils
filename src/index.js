@@ -8,20 +8,23 @@ class ServerlessProjectUtils {
         this.serverless = serverless;
         this.commands = {
             'export': {
-                usage: 'Exports the computed serverless config to .json files',
-                lifecycleEvents: ['environment']
+                usage: 'Exports the computed serverless yaml to json',
+                lifecycleEvents: ['json']
             }
         };
 
         this.hooks = {
-            'export:environment': this.exportEnvironment.bind(this)
+            'export:json': this.exportJson.bind(this)
         };
     }
 
-    exportEnvironment() {
+    exportJson() {
         const slsFolder = path.join(this.serverless.config.servicePath, serverlessFolder);
         if (!fs.existsSync(slsFolder)) fs.mkdirSync(slsFolder);
-        fs.writeFileSync(`${slsFolder}/environment.json`, JSON.stringify(this.serverless.service.provider.environment || {}, 'utf8'));
+        fs.writeFileSync(`${slsFolder}/serverless.json`, JSON.stringify({
+            ...this.serverless.service,
+            serverless: undefined
+        }), 'utf8');
     }
 }
 
