@@ -3,6 +3,7 @@
 /* global describe it beforeEach afterEach */
 const fs = require('fs');
 const path = require('path');
+const moment = require('moment');
 const chai = require('chai');
 const sinon = require('sinon');
 const Serverless = require('serverless');
@@ -50,6 +51,33 @@ describe('index.js', () => {
             assert.equal(serverlessYaml.provider.environment.SERVICE_NAME, 'panda');
 
             assert.equal(serverlessYaml.functions.create.environment.NODE_ENV, 'test');
+        });
+
+        it('should convert schedule:string into an object', () => {
+            assert.isTrue(fs.existsSync(`${serverlessFolder}/serverless.json`));
+            const serverlessYaml = require(`${serverlessFolder}/serverless.json`);
+
+            assert.isObject(serverlessYaml.functions.referentialIntegrity.events[0].schedule);
+        });
+
+        it('should add english descriptions to schedule events with cron expression', () => {
+            assert.isTrue(fs.existsSync(`${serverlessFolder}/serverless.json`));
+            const serverlessYaml = require(`${serverlessFolder}/serverless.json`);
+
+            let schedule1 = serverlessYaml.functions.referentialIntegrity.events[0].schedule;
+
+            assert.isObject(schedule1);
+            assert.equal(schedule1.meta.utc, 'rate-1-day-UTC');
+            assert.equal(schedule1.meta.local, 'rate-1-day-LOCAL');
+
+            let schedule2 = serverlessYaml.functions.referentialIntegrity.events[1].schedule;
+
+            let [hourUtc, meridiemUtc] = moment().utc().hours(10).minutes(0).format('hh A').split(' ');
+            let [hourLocal, meridiemLocal] = moment().utc().hours(10).minutes(0).local().format('hh A').split(' ');
+
+            assert.isObject(schedule2);
+            assert.equal(schedule2.meta.utc, `cron-At-${hourUtc}:00-${meridiemUtc}-UTC`);
+            assert.equal(schedule2.meta.local, `cron-At-${hourLocal}:00-${meridiemLocal}-LOCAL`);
         });
     });
 });
