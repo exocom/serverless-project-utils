@@ -40,6 +40,19 @@ functions:
           path: "panda/{pandaId}"
           cors: true
 
+  referentialIntegrity:
+    handler: src/handler.referentialIntegrity
+    events:
+      - schedule: rate(1 day)
+      - schedule:
+          rate: cron(0 10 * * ? *)
+          enabled: false
+          input:
+            key1: value1
+            key2: value2
+            stageParams:
+              stage: dev
+
 custom:
   localDevPort: 5999
   debug: true
