@@ -42,6 +42,10 @@ describe('index.js', () => {
             return serverless.run();
         });
 
+        after(() => {
+            process.exit(0);
+        });
+
         it('should create a serverless.json', () => {
             assert.isTrue(fs.existsSync(`${serverlessFolder}/serverless.json`));
             const serverlessYaml = require(`${serverlessFolder}/serverless.json`);
