@@ -1,8 +1,8 @@
 {
   "name": "@kalarrs/serverless-project-utils",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "engines": {
-    "node": ">=9.0"
+    "node": ">=8.10"
   },
   "description": "serverless project utilites",
   "author": "Kalarrs Topham",
@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "cronstrue": "^1.31.0",
+    "md5-file": "^4.0.0",
     "moment": "^2.22.2"
   },
   "devDependencies": {

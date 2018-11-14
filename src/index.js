@@ -1,9 +1,15 @@
 'use strict';
-const fs = require('fs');
+const {promisify} = require('util');
+const {exists, mkdir, writeFile} = require('fs');
 const path = require('path');
 const serverlessFolder = '.serverless';
 const cronstrue = require('cronstrue');
 const moment = require('moment');
+const md5File = require('md5-file/promise');
+
+const existsAsync = promisify(exists);
+const mkdirAsync = promisify(mkdir);
+const writeFileAsync = promisify(writeFile);
 
 class ServerlessProjectUtils {
     constructor(serverless, options) {
@@ -25,9 +31,9 @@ class ServerlessProjectUtils {
         let rateInEnglishLocal = '';
 
         if (scheduleConfig.rate.startsWith('cron')) {
-            let cronExpression = scheduleConfig.rate.replace(/^cron\((.*?)\)/g, '$1')
+            let cronExpression = scheduleConfig.rate.replace(/^cron\((.*?)\)/g, '$1');
             let cronParts = cronExpression.split(' ');
-            if (cronParts.length !== 6) throw new Error('Cron expression should contain 6 parts. See https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-schedule-expressions.html')
+            if (cronParts.length !== 6) throw new Error('Cron expression should contain 6 parts. See https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-schedule-expressions.html');
             let cronExpressionLocal = [
                 ...cronParts.slice(0, 1),
                 moment().utc().hours(cronParts[1]).minutes(0).local().hours(),
@@ -50,10 +56,11 @@ class ServerlessProjectUtils {
     }
 
 
-    exportJson() {
+    async exportJson() {
         const slsFolder = path.join(this.serverless.config.servicePath, serverlessFolder);
-        if (!fs.existsSync(slsFolder)) fs.mkdirSync(slsFolder);
+        if (!await existsAsync(slsFolder)) await mkdirAsync(slsFolder);
         let serverlessService = {
+            md5: await md5File(path.join(this.serverless.config.servicePath, 'serverless.yml')),
             ...this.serverless.service,
             functions: Object.keys(this.serverless.service.functions).reduce((updatedFunctions, name) => {
                 let func = this.serverless.service.functions[name];
@@ -74,7 +81,7 @@ class ServerlessProjectUtils {
             serverless: undefined
         };
 
-        fs.writeFileSync(`${slsFolder}/serverless.json`, JSON.stringify(serverlessService), 'utf8');
+        await writeFileAsync(`${slsFolder}/serverless.json`, JSON.stringify(serverlessService), 'utf8');
     }
 }
 
